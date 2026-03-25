@@ -1,7 +1,5 @@
-runtime bundle/vim-pathogen/autoload/pathogen.vim
-execute pathogen#infect()
-
 syntax on
+set regexpengine=0             "use new regular expression engine https://jameschambers.co.uk/vim-typescript-slow
 
 filetype on
 filetype plugin on
@@ -11,9 +9,21 @@ set nocompatible
 
 set history=1000
 
-colorscheme solarized
-set t_Co=256
-set background=light
+let g:gruvbox_material_background = 'hard'
+let g:gruvbox_material_foreground = 'original'
+let g:gruvbox_material_statusline_style = 'original'
+colorscheme gruvbox-material
+"colorscheme catppuccin_frappe
+"colorscheme catppuccin_macchiato
+"colorscheme catppuccin_mocha
+"colorscheme rosepine
+"colorscheme rosepine_moon
+"colorscheme molokai
+set background=dark
+set termguicolors
+"set notermguicolors
+
+set signcolumn=yes
 
 set noerrorbells
 set novisualbell
@@ -56,7 +66,7 @@ set nowrapscan
 
 set foldenable
 
-set list listchars=tab:▹‧,trail:‧,extends:▸,precedes:◂
+"set list listchars=tab:▹‧,trail:‧,extends:▸,precedes:◂
 
 set wildmenu
 
@@ -64,7 +74,7 @@ set nobackup
 set noswapfile
 
 set encoding=utf-8 nobomb
-set termencoding=utf-8
+"set termencoding=utf-8
 set fileencodings=utf-8,cp1251
 
 set gdefault                    "always global regex
@@ -77,9 +87,11 @@ let g:mapleader=","
 nmap ; :
 
 nmap <leader>p :set invpaste<cr>
-nmap <cr> :ALEGoToDefinition<cr>
-nmap <leader><cr> :ALEGoToDefinitionInTab<cr>
-nmap <space> :ALEHover<cr>
+
+"nmap <cr> :ALEGoToDefinition<cr>
+"nmap <leader><cr> :ALEGoToDefinition -tab<cr>
+"nmap <space> :ALEHover<cr>
+"nmap <leader><space> :ALEFindReferences<cr>
 
 nmap <c-t> :tabnew<cr>
 imap <c-t> <esc><c-t>
@@ -89,15 +101,79 @@ nmap <s-right> gt
 imap <s-right> <esc><s-right>
 
 vnoremap <silent> * :call VisualSelection('f', '')<cr>
-vnoremap <silent> # :call VisualSelection('b', '')<cr>
+"vnoremap <silent> # :call VisualSelection('b', '')<cr>
 
-let g:airline_theme='bubblegum'
+"let g:airline_theme='bubblegum'
+"let g:airline_theme='base16_tomorrow'
+"let g:airline_theme='base16_gruvbox_dark_medium'
 
-let g:ale_completion_enabled = 1
+"let g:ale_completion_enabled = 1
 " We need this to disable jshint
-let b:ale_linters = {'javascript': ['eslint', 'flow', 'jscs', 'prettier', 'prettier-eslint', 'prettier-standard', 'standard', 'tsserver', 'xo']}
+"let b:ale_linters = {'javascript': ['eslint', 'flow', 'jscs', 'prettier', 'prettier-eslint', 'prettier-standard', 'standard', 'tsserver', 'xo']}
 
-autocmd! BufWritePost .vimrc source ~/.vimrc
+
+" https://github.com/neoclide/coc.nvim?tab=readme-ov-file#example-vim-configuration
+" Make <CR> to accept selected completion item or notify coc.nvim to format
+" <C-g>u breaks current undo, please make your own choice
+inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
+                              \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
+
+" Use <c-space> to trigger completion
+if has('nvim')
+  inoremap <silent><expr> <c-space> coc#refresh()
+else
+  inoremap <silent><expr> <c-@> coc#refresh()
+endif
+
+" GoTo code navigation
+nmap <silent> gd <Plug>(coc-definition)
+nmap <silent> gy <Plug>(coc-type-definition)
+nmap <silent> gi <Plug>(coc-implementation)
+nmap <silent> gr <Plug>(coc-references)
+
+nmap <silent> <cr> <Plug>(coc-definition)
+nmap <silent> <leader><cr> :call CocAction('jumpDefinition', 'tabe')<cr>
+nmap <silent> <space> :call CocActionAsync('doHover')<cr>
+nmap <silent> <leader><space> :call CocAction('jumpTypeDefinition', 'tabe')<cr>
+
+function! ShowDocumentation()
+  if CocAction('hasProvider', 'hover')
+    call CocActionAsync('doHover')
+  else
+    call feedkeys('K', 'in')
+  endif
+endfunction
+
+" Highlight the symbol and its references when holding the cursor
+"autocmd CursorHold * silent call CocActionAsync('highlight')
+
+" Symbol renaming
+nmap <leader>rn <Plug>(coc-rename)
+
+" Use `[g` and `]g` to navigate diagnostics
+" Use `:CocDiagnostics` to get all diagnostics of current buffer in location list
+nmap <silent> [g <Plug>(coc-diagnostic-prev)
+nmap <silent> ]g <Plug>(coc-diagnostic-next)
+
+command! -nargs=0 Prettier :CocCommand prettier.forceFormatDocument
+
+vmap <leader>f  <Plug>(coc-format-selected)
+nmap <leader>f  <Plug>(coc-format-selected)
+
+
+if !has('nvim')
+  "highlight clear SpellBad
+  "highlight SpellBad cterm=underline,bold ctermfg=red ctermbg=NONE
+  highlight CocUnderline cterm=underline gui=underline
+  highlight CocUnusedHighlight cterm=underline gui=underline
+  highlight CocDeprecatedHighlight cterm=underline gui=underline
+  highlight CocErrorHighlight cterm=underline gui=underline
+  highlight CocWarningHighlight cterm=underline gui=underline
+  highlight CocHintHighlight cterm=underline gui=underline
+  highlight CocInfoHighlight cterm=underline gui=underline
+endif
+
+autocmd! BufWritePost vimrc source ~/.config/vim/vimrc
 
 autocmd! BufReadPost * if line("'\"") > 0 | if line("'\"") <= line("$") | exe ("norm '\"") | else | exe "norm $" | endif | endif
 

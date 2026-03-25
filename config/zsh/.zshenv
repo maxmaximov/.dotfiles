@@ -1,3 +1,10 @@
+export ZDOTDIR="$HOME/.config/zsh"
+
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+export XDG_STATE_HOME="$HOME/.local/state"
+export XDG_CACHE_HOME="$HOME/.cache"
+
 if ls --color -d . >/dev/null 2>&1; then
     # GNU
     alias ls='ls --color=auto'
@@ -11,6 +18,12 @@ fi
 alias l='ls -F'
 alias ll='ls -F -h -l'
 alias la='ls -A -F -h -l'
+
+# Catppuccin Mocha-ish palette for core CLI tools.
+export CLICOLOR=1
+export LSCOLORS='Gxfxcxdxbxegedabagacad'
+export LS_COLORS='di=1;34:ln=1;36:so=1;35:pi=33:ex=1;32:bd=30;46:cd=30;43:su=37;41:sg=30;43:tw=30;42:ow=30;43'
+export GREP_COLORS='mt=1;38;5;203:fn=38;5;111:ln=38;5;150:bn=38;5;150:se=38;5;245'
 
 alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
