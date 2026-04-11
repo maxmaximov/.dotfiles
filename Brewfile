@@ -37,6 +37,7 @@ cask "font-jetbrains-mono-nerd-font"
 cask "ghostty"
 cask "google-chrome"
 cask "ngrok"
+cask "obsidian"
 
 mas "Monosnap", id: 540348655
 mas "Slack", id: 803453959
