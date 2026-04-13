@@ -13,6 +13,7 @@
     - ~/.cache/zsh
     - ~/.local/share
     - ~/.local/state
+    - ~/.local/state/vim
     - ~/.local/state/zsh
     - ~/.local/state/zsh/sessions
     - ~/.ssh
