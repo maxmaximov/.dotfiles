@@ -2,7 +2,10 @@
   "$schema": "https://opencode.ai/config.json",
   "autoupdate": false,
   "instructions": ["~/wiki/AGENTS.md"],
-  "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
+  "plugin": [
+    "superpowers@git+https://github.com/obra/superpowers.git",
+    "@plannotator/opencode@latest"
+  ],
   "provider": {
     "jb_litellm": {
       "npm": "@ai-sdk/openai-compatible",
