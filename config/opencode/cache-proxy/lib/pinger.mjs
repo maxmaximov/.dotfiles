@@ -62,17 +62,19 @@ export function createPinger({ cfg, store, journal, now = () => Date.now() }) {
     let result = null;
     let error = null;
     try {
+      // Snapshot: a real request may replace the session's headers while the ping is in flight.
+      const headers = pingHeaders(s.headers);
       const res = await requestUpstream(cfg.upstream, {
         method: 'POST',
         path: s.path,
-        headers: pingHeaders(s.headers),
+        headers,
         body: makePingBody(s.body, cfg.pingMaxTokens),
         signal: AbortSignal.timeout(cfg.pingTimeoutMs),
       });
       const text = (await readAll(res)).toString('utf8');
       status = res.statusCode;
       if (status === 200) result = parseUsageFromJson(text);
-      else error = errorSummary(text, credentials(s.headers));
+      else error = errorSummary(text, credentials(headers));
     } catch (err) {
       error = short(err);
     } finally {

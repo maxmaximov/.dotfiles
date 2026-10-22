@@ -5,7 +5,7 @@ import { makePingBody, pingHeaders, createPinger, errorSummary, PING_UA } from '
 import { SessionStore } from '../lib/sessions.mjs';
 import { createJournal } from '../lib/journal.mjs';
 import {
-  KEY, MIN, clock, testConfig, startUpstream, usage, jsonOf, opencodeBody, opencodeHeaders, readJournal, journalText,
+  KEY, MIN, clock, testConfig, startUpstream, usage, jsonOf, opencodeBody, opencodeHeaders, readJournal, journalText, waitFor,
 } from './helpers.mjs';
 
 const hit = (req, res) => {
@@ -112,6 +112,35 @@ test('a 4xx other than 429 stops as rejected and journals the error without cred
   assert.equal(t.store.get('ses_test').stopped, 'rejected');
   assert.equal(t.journal('ping')[0].error, 'invalid_request_error: bad key [redacted]');
   assert.equal(journalText(t.cfg.stateDir).includes(KEY), false);
+  await t.close();
+});
+
+test('a key replaced by a real request during a ping is still redacted from its error', async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const t = await setup(async (req, res) => {
+    await gate;
+    res.writeHead(401, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: `bad key ${req.headers['x-api-key']}` } }));
+  });
+  // Keys without the sk- prefix, so that only the credential snapshot can redact them.
+  const realRequest = (key) => {
+    t.store.recordReal('ses_test', {
+      body: JSON.stringify(opencodeBody()), headers: { ...opencodeHeaders(), 'x-api-key': key },
+      model: 'claude-test', path: '/v1/messages', start: t.c.t, oneHour: true,
+    });
+    t.store.setUsage('ses_test', t.c.t, { input: 3, cacheRead: 0, cacheWrite: 900, write5m: 0, write1h: 900, output: 5 });
+  };
+  realRequest('old-key-1234');
+  t.c.advance(55 * MIN);
+  t.pinger.tick();
+  await waitFor(() => t.upstream.requests.length === 1);
+  t.c.advance(1000);
+  realRequest('new-key-5678');
+  release();
+  await t.pinger.drain();
+  assert.equal(t.journal('ping')[0].error, 'authentication_error: bad key [redacted]');
+  assert.equal(journalText(t.cfg.stateDir).includes('old-key-1234'), false);
   await t.close();
 });
 
