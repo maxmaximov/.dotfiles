@@ -44,6 +44,8 @@ export class SessionStore {
   // A real request got HTTP 200: it becomes the session's last request.
   recordReal(id, { body, headers, model, path, start, oneHour }) {
     const s = this.ensure(id);
+    // Overlapping requests: a response to a request that started before the latest recorded one is stale.
+    if (start < s.lastReal) return;
     Object.assign(s, {
       body, headers, model, path, oneHour, pingable: false, lastReal: start, lastTouch: start, attempts: 0, pings: 0, stopped: null,
     });

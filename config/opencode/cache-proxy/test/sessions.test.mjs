@@ -43,6 +43,16 @@ test('usage of an older request does not override a newer one', () => {
   assert.equal(store.get('s').pingable, true);
 });
 
+test('an older request finishing last does not replace a newer one', () => {
+  const store = new SessionStore(cfg);
+  store.recordReal('s', real({ start: 2000, body: '{"new":true}' }));
+  store.setUsage('s', 2000, hour);
+  store.recordReal('s', real({ start: 1000, body: '{"old":true}' }));
+  store.setUsage('s', 1000, hour);
+  const s = store.get('s');
+  assert.deepEqual([s.lastReal, s.body, s.pingable], [2000, '{"new":true}', true]);
+});
+
 test('ping outcomes: ok moves lastTouch, retry counts attempts, miss and rejected ask to stop', () => {
   const store = new SessionStore(cfg);
   store.recordReal('s', real());
