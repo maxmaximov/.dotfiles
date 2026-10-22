@@ -39,6 +39,11 @@ export function loadConfig(env = process.env) {
   };
   const port = num('CACHE_PROXY_PORT', 18765);
   if (port < 1 || port > 65535) throw new Error('CACHE_PROXY_PORT must be between 1 and 65535');
+  // An upstream on the proxy's own address would forward every request back to the proxy.
+  const upstreamPort = Number(url.port || (url.protocol === 'https:' ? 443 : 80));
+  if (['localhost', '127.0.0.1', '[::1]', '0.0.0.0'].includes(url.hostname) && upstreamPort === port) {
+    throw new Error('CACHE_PROXY_UPSTREAM must point to LiteLLM, not to the proxy itself');
+  }
   return {
     upstream: upstream.replace(/\/+$/, ''),
     port,
@@ -237,6 +242,8 @@ export function createProxy(cfg, { now = () => Date.now(), journal = createJourn
 
 async function main() {
   const cfg = loadConfig();
+  // `--check` only validates the configuration: install.sh runs it before touching a running agent.
+  if (process.argv[2] === '--check') return;
   const proxy = createProxy(cfg);
   const port = await proxy.listen();
   console.log(`${new Date().toISOString()} opencode-cache-proxy ${VERSION} listening on 127.0.0.1:${port}`);

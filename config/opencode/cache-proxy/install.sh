@@ -16,11 +16,9 @@ OPTIONAL=(CACHE_PROXY_PORT CACHE_PROXY_PING_AFTER_SEC CACHE_PROXY_LATE_AFTER_SEC
   CACHE_PROXY_DAILY_CAP CACHE_PROXY_PING_MAX_TOKENS)
 
 : ${CACHE_PROXY_UPSTREAM:?set CACHE_PROXY_UPSTREAM to the LiteLLM origin without /v1}
-if [[ $CACHE_PROXY_UPSTREAM == *127.0.0.1* || $CACHE_PROXY_UPSTREAM == *localhost* ]]; then
-  echo "CACHE_PROXY_UPSTREAM must point to LiteLLM, not to the proxy itself" >&2
-  exit 1
-fi
 [[ -x $NODE ]] || { echo "node not found at $NODE" >&2; exit 1; }
+# The proxy's own rules (URL, port, not pointing to itself): nothing is written or stopped if they fail.
+"$NODE" "$DIR/proxy.mjs" --check
 
 xml() {
   local s=$1

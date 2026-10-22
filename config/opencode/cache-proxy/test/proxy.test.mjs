@@ -2,6 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../proxy.mjs';
 import {
   KEY, MIN, clock, testConfig, startUpstream, startProxy, waitFor, usage, sse, streamOf, jsonOf,
@@ -248,7 +250,22 @@ test('loadConfig: defaults and validation', () => {
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://llm.example/v1?x=1' }), /credentials, a query or a fragment/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://llm.example/?' }), /credentials, a query or a fragment/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://llm.example/#' }), /credentials, a query or a fragment/);
+  for (const upstream of ['http://127.0.0.1:18765', 'http://localhost:18765', 'http://127.1:18765', 'http://[::1]:18765', 'http://0.0.0.0:18765']) {
+    assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: upstream }), /not to the proxy itself/, upstream);
+  }
+  assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'http://127.0.0.1:4000', CACHE_PROXY_PORT: '4000' }), /not to the proxy itself/);
+  assert.equal(loadConfig({ CACHE_PROXY_UPSTREAM: 'http://127.0.0.1:4000' }).upstream, 'http://127.0.0.1:4000');
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://x.example', CACHE_PROXY_PORT: '70000' }), /between 1 and 65535/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://x.example', CACHE_PROXY_PORT: '0' }), /between 1 and 65535/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://x.example', CACHE_PROXY_DAILY_CAP: '-1' }), /CACHE_PROXY_DAILY_CAP/);
+});
+
+test('proxy.mjs --check validates the configuration without starting', () => {
+  const proxyPath = fileURLToPath(new URL('../proxy.mjs', import.meta.url));
+  const run = (env) => spawnSync(process.execPath, [proxyPath, '--check'], { env: { PATH: process.env.PATH, ...env }, encoding: 'utf8', timeout: 10_000 });
+  const ok = run({ CACHE_PROXY_UPSTREAM: 'https://llm.example' });
+  assert.deepEqual([ok.status, ok.stdout, ok.stderr], [0, '', '']);
+  const bad = run({ CACHE_PROXY_UPSTREAM: 'http://[::1]:18765' });
+  assert.equal(bad.status, 1);
+  assert.match(bad.stderr, /not to the proxy itself/);
 });
