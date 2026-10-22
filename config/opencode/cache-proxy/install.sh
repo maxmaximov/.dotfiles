@@ -17,8 +17,18 @@ OPTIONAL=(CACHE_PROXY_PORT CACHE_PROXY_PING_AFTER_SEC CACHE_PROXY_LATE_AFTER_SEC
 
 : ${CACHE_PROXY_UPSTREAM:?set CACHE_PROXY_UPSTREAM to the LiteLLM origin without /v1}
 [[ -x $NODE ]] || { echo "node not found at $NODE" >&2; exit 1; }
-# The proxy's own rules (URL, port, not pointing to itself): nothing is written or stopped if they fail.
-"$NODE" "$DIR/proxy.mjs" --check
+
+# The agent's environment: written into the plist and validated by `proxy.mjs --check` as is.
+AGENT_ENV=(CACHE_PROXY_UPSTREAM "$CACHE_PROXY_UPSTREAM" CACHE_PROXY_STATE_DIR "$STATE")
+for name in $OPTIONAL; do
+  if [[ -n ${(P)name:-} ]]; then AGENT_ENV+=("$name" "${(P)name}"); fi
+done
+
+# The proxy's own rules (URL, port, not pointing to itself) on exactly that environment, as launchd will
+# start it: nothing is written or stopped if they fail.
+CHECK_ENV=()
+for name value in "${AGENT_ENV[@]}"; do CHECK_ENV+=("$name=$value"); done
+env -i HOME="$HOME" PATH=/usr/bin:/bin "${CHECK_ENV[@]}" "$NODE" "$DIR/proxy.mjs" --check
 
 xml() {
   local s=$1
@@ -33,13 +43,9 @@ plist() {
   print -r -- "  <key>Label</key><string>$LABEL</string>"
   print -r -- "  <key>ProgramArguments</key><array><string>$(xml $NODE)</string><string>$(xml $DIR/proxy.mjs)</string></array>"
   print -r -- '  <key>EnvironmentVariables</key><dict>'
-  print -r -- "    <key>CACHE_PROXY_UPSTREAM</key><string>$(xml $CACHE_PROXY_UPSTREAM)</string>"
-  print -r -- "    <key>CACHE_PROXY_STATE_DIR</key><string>$(xml $STATE)</string>"
-  local name
-  for name in $OPTIONAL; do
-    if [[ -n ${(P)name:-} ]]; then
-      print -r -- "    <key>$name</key><string>$(xml ${(P)name})</string>"
-    fi
+  local name value
+  for name value in "${AGENT_ENV[@]}"; do
+    print -r -- "    <key>$name</key><string>$(xml "$value")</string>"
   done
   print -r -- '  </dict>'
   print -r -- '  <key>RunAtLoad</key><true/>'
