@@ -27,7 +27,7 @@ export function loadConfig(env = process.env) {
   } catch {
     throw new Error('CACHE_PROXY_UPSTREAM is not a valid URL');
   }
-  if (url.username || url.password || url.search || url.hash) {
+  if (url.username || url.password || /[?#]/.test(upstream)) {
     throw new Error('CACHE_PROXY_UPSTREAM must not contain credentials, a query or a fragment');
   }
   const num = (name, fallback) => {

@@ -246,6 +246,8 @@ test('loadConfig: defaults and validation', () => {
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'http://' }), /not a valid URL/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://user:pw@llm.example' }), /credentials, a query or a fragment/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://llm.example/v1?x=1' }), /credentials, a query or a fragment/);
+  assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://llm.example/?' }), /credentials, a query or a fragment/);
+  assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://llm.example/#' }), /credentials, a query or a fragment/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://x.example', CACHE_PROXY_PORT: '70000' }), /between 1 and 65535/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://x.example', CACHE_PROXY_PORT: '0' }), /between 1 and 65535/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://x.example', CACHE_PROXY_DAILY_CAP: '-1' }), /CACHE_PROXY_DAILY_CAP/);
