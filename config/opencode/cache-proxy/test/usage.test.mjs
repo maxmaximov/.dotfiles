@@ -73,6 +73,11 @@ test('cachedForAnHour: no 5-minute writes and something cached', () => {
   assert.equal(cachedForAnHour(u({})), false);
   assert.equal(cachedForAnHour(u({ cacheRead: 100, write5m: null, write1h: null })), true);
   assert.equal(cachedForAnHour(u({ cacheWrite: 100, write5m: null, write1h: null })), false);
+  // cache_creation without the 5-minute field: unknown, so it counts only when nothing was written.
+  assert.equal(cachedForAnHour(normalizeUsage({
+    cache_read_input_tokens: 20, cache_creation_input_tokens: 100, cache_creation: { ephemeral_1h_input_tokens: 100 },
+  })), false);
+  assert.equal(cachedForAnHour(normalizeUsage({ cache_read_input_tokens: 20, cache_creation_input_tokens: 0, cache_creation: {} })), true);
   assert.equal(cachedForAnHour(null), false);
 });
 

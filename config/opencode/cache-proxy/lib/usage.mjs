@@ -8,8 +8,9 @@ export function normalizeUsage(u) {
     input: u.input_tokens ?? 0,
     cacheRead: u.cache_read_input_tokens ?? 0,
     cacheWrite: u.cache_creation_input_tokens ?? 0,
-    write5m: cc ? (cc.ephemeral_5m_input_tokens ?? 0) : null,
-    write1h: cc ? (cc.ephemeral_1h_input_tokens ?? 0) : null,
+    // A missing per-TTL field is unknown, not zero.
+    write5m: cc?.ephemeral_5m_input_tokens ?? null,
+    write1h: cc?.ephemeral_1h_input_tokens ?? null,
     output: u.output_tokens ?? 0,
   };
 }
