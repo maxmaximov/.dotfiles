@@ -41,9 +41,13 @@ export function responseHeaders(incoming) {
   return out;
 }
 
-// `base` is the LiteLLM origin, optionally with a path prefix; `path` is the incoming path with query.
+// `base` is the LiteLLM origin, optionally with a path prefix; `path` is the incoming origin-form target
+// (path and query). Anything else could send the request, and the API key, to another host.
 export function upstreamUrl(base, path) {
-  return new URL(base.replace(/\/+$/, '') + path);
+  if (typeof path !== 'string' || !path.startsWith('/')) throw new Error('unsupported request target');
+  const url = new URL(base.replace(/\/+$/, '') + path);
+  if (url.origin !== new URL(base).origin) throw new Error('request target changes the upstream origin');
+  return url;
 }
 
 // Resolves with the upstream IncomingMessage as soon as response headers arrive.

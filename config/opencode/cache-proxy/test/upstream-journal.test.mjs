@@ -39,6 +39,12 @@ test('upstreamUrl joins the base and the incoming path, keeping a path prefix an
   assert.equal(upstreamUrl('https://llm.example/prefix', '/v1/messages').href, 'https://llm.example/prefix/v1/messages');
 });
 
+test('upstreamUrl rejects targets that are not origin-form paths', () => {
+  assert.throws(() => upstreamUrl('https://llm.example', 'http://evil.example/v1/messages'), /unsupported request target/);
+  assert.throws(() => upstreamUrl('https://llm.example', '@evil.example/v1/messages'), /unsupported request target/);
+  assert.equal(upstreamUrl('https://llm.example', '//evil.example/v1').origin, 'https://llm.example');
+});
+
 test('journal appends JSON lines to a monthly file', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cache-proxy-journal-'));
   const journal = createJournal(dir, () => Date.parse('2026-10-22T10:00:00Z'));
@@ -49,6 +55,14 @@ test('journal appends JSON lines to a monthly file', () => {
     { ts: '2026-10-22T10:00:00.000Z', kind: 'request', status: 200 },
     { ts: '2026-10-22T10:00:00.000Z', kind: 'ping', status: 200 },
   ]);
+});
+
+test('journal recreates its directory if it was removed', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cache-proxy-journal-'));
+  const journal = createJournal(dir, () => Date.parse('2026-10-22T10:00:00Z'));
+  fs.rmSync(dir, { recursive: true });
+  journal.write({ kind: 'request' });
+  assert.equal(fs.readFileSync(path.join(dir, 'requests-2026-10.jsonl'), 'utf8').includes('"kind":"request"'), true);
 });
 
 test('short truncates errors and values to 300 characters', () => {
