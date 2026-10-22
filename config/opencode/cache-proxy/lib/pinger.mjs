@@ -7,6 +7,33 @@ import { short } from './journal.mjs';
 
 export const PING_UA = 'opencode-cache-proxy-ping/1';
 
+const KEY_LIKE = /\b(sk-|Bearer\s+)[^\s"',;]+/gi;
+
+// Credential values of a session's request, to keep them out of the journal.
+function credentials(headers) {
+  return ['x-api-key', 'authorization'].flatMap((name) => {
+    const value = headers?.[name];
+    return typeof value === 'string' ? [value, value.replace(/^Bearer\s+/i, '')] : [];
+  });
+}
+
+// The journal gets an upstream error's type and message, never the raw body: it could echo request
+// text or credentials. The session's credentials and key-like tokens are redacted.
+export function errorSummary(text, secrets = []) {
+  let error;
+  try {
+    error = JSON.parse(text)?.error;
+  } catch {
+    // Not JSON: only the size is kept.
+  }
+  if (!error || typeof error !== 'object') return `unparsed error body, ${Buffer.byteLength(text)} bytes`;
+  let summary = [error.type, error.message].filter((v) => typeof v === 'string' && v !== '').join(': ');
+  for (const secret of secrets) {
+    if (secret.length >= 8) summary = summary.split(secret).join('[redacted]');
+  }
+  return short(summary.replace(KEY_LIKE, '$1[redacted]')) || 'error without type or message';
+}
+
 // Spread keeps key order; only max_tokens and stream change.
 export function makePingBody(body, maxTokens) {
   return JSON.stringify({ ...JSON.parse(body), max_tokens: maxTokens, stream: false });
@@ -45,7 +72,7 @@ export function createPinger({ cfg, store, journal, now = () => Date.now() }) {
       const text = (await readAll(res)).toString('utf8');
       status = res.statusCode;
       if (status === 200) result = parseUsageFromJson(text);
-      else error = short(text);
+      else error = errorSummary(text, credentials(s.headers));
     } catch (err) {
       error = short(err);
     } finally {

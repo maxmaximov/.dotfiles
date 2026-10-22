@@ -1,7 +1,7 @@
 // test/pinger.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makePingBody, pingHeaders, createPinger, PING_UA } from '../lib/pinger.mjs';
+import { makePingBody, pingHeaders, createPinger, errorSummary, PING_UA } from '../lib/pinger.mjs';
 import { SessionStore } from '../lib/sessions.mjs';
 import { createJournal } from '../lib/journal.mjs';
 import {
@@ -46,6 +46,19 @@ test('pingHeaders marks user-agent and keeps everything else', () => {
   assert.equal(pingHeaders({})['user-agent'], PING_UA);
 });
 
+test('errorSummary keeps the type and message of an upstream error and redacts credentials', () => {
+  assert.equal(
+    errorSummary('{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: must be at least 1"}}'),
+    'invalid_request_error: max_tokens: must be at least 1',
+  );
+  assert.equal(
+    errorSummary('{"error":{"message":"Invalid key sk-abc123def, Bearer tok_456 and k-secret-value-789","type":"auth_error"}}', ['k-secret-value-789']),
+    'auth_error: Invalid key sk-[redacted], Bearer [redacted] and [redacted]',
+  );
+  assert.equal(errorSummary('<html>502 Bad Gateway</html>'), 'unparsed error body, 28 bytes');
+  assert.equal(errorSummary('{"error":{}}'), 'error without type or message');
+});
+
 test('pings 55 minutes after the last request with the same headers, then again 55 minutes later', async () => {
   const t = await setup(hit);
   t.addSession();
@@ -88,15 +101,16 @@ test('a ping that writes the cache is a miss: pings stop, body and key are dropp
   await t.close();
 });
 
-test('a 4xx other than 429 stops as rejected', async () => {
+test('a 4xx other than 429 stops as rejected and journals the error without credentials', async () => {
   const t = await setup((req, res) => {
     res.writeHead(400, { 'content-type': 'application/json' });
-    res.end('{"type":"error","error":{"type":"invalid_request_error","message":"bad"}}');
+    res.end(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: `bad key ${req.headers['x-api-key']}` } }));
   });
   t.addSession();
   await t.run(55 * MIN);
   assert.equal(t.store.get('ses_test').stopped, 'rejected');
-  assert.match(t.journal('ping')[0].error, /invalid_request_error/);
+  assert.equal(t.journal('ping')[0].error, 'invalid_request_error: bad key [redacted]');
+  assert.equal(journalText(t.cfg.stateDir).includes(KEY), false);
   await t.close();
 });
 
