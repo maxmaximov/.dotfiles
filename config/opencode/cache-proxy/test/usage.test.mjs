@@ -78,6 +78,7 @@ test('cachedForAnHour: no 5-minute writes and something cached', () => {
     cache_read_input_tokens: 20, cache_creation_input_tokens: 100, cache_creation: { ephemeral_1h_input_tokens: 100 },
   })), false);
   assert.equal(cachedForAnHour(normalizeUsage({ cache_read_input_tokens: 20, cache_creation_input_tokens: 0, cache_creation: {} })), true);
+  assert.equal(cachedForAnHour(normalizeUsage({ cache_read_input_tokens: 10 })), false);
   assert.equal(cachedForAnHour(null), false);
 });
 
@@ -85,6 +86,7 @@ test('pingHit: read something, wrote nothing', () => {
   assert.equal(pingHit(normalizeUsage({ cache_read_input_tokens: 10, cache_creation_input_tokens: 0 })), true);
   assert.equal(pingHit(normalizeUsage({ cache_read_input_tokens: 10, cache_creation_input_tokens: 5 })), false);
   assert.equal(pingHit(normalizeUsage({ cache_read_input_tokens: 0 })), false);
+  assert.equal(pingHit(normalizeUsage({ cache_read_input_tokens: 10 })), false);
   assert.equal(pingHit(null), false);
 });
 
