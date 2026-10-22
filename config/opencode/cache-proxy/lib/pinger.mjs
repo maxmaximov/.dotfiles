@@ -29,7 +29,7 @@ export function errorSummary(text, secrets = []) {
   if (!error || typeof error !== 'object') return `unparsed error body, ${Buffer.byteLength(text)} bytes`;
   let summary = [error.type, error.message].filter((v) => typeof v === 'string' && v !== '').join(': ');
   for (const secret of secrets) {
-    if (secret.length >= 8) summary = summary.split(secret).join('[redacted]');
+    if (secret) summary = summary.split(secret).join('[redacted]');
   }
   return short(summary.replace(KEY_LIKE, '$1[redacted]')) || 'error without type or message';
 }

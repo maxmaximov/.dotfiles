@@ -55,6 +55,7 @@ test('errorSummary keeps the type and message of an upstream error and redacts c
     errorSummary('{"error":{"message":"Invalid key sk-abc123def, Bearer tok_456 and k-secret-value-789","type":"auth_error"}}', ['k-secret-value-789']),
     'auth_error: Invalid key sk-[redacted], Bearer [redacted] and [redacted]',
   );
+  assert.equal(errorSummary('{"error":{"type":"auth_error","message":"bad key abc123"}}', ['abc123', '']), 'auth_error: bad key [redacted]');
   assert.equal(errorSummary('<html>502 Bad Gateway</html>'), 'unparsed error body, 28 bytes');
   assert.equal(errorSummary('{"error":{}}'), 'error without type or message');
 });
