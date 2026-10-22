@@ -21,6 +21,15 @@ export function loadConfig(env = process.env) {
   if (!upstream) throw new Error('CACHE_PROXY_UPSTREAM is required');
   if (!/^https?:\/\//.test(upstream)) throw new Error('CACHE_PROXY_UPSTREAM must start with http:// or https://');
   if (/\/v1\/?$/.test(upstream)) throw new Error('CACHE_PROXY_UPSTREAM must be the LiteLLM origin without /v1');
+  let url;
+  try {
+    url = new URL(upstream);
+  } catch {
+    throw new Error('CACHE_PROXY_UPSTREAM is not a valid URL');
+  }
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error('CACHE_PROXY_UPSTREAM must not contain credentials, a query or a fragment');
+  }
   const num = (name, fallback) => {
     const raw = env[name];
     if (raw === undefined || raw === '') return fallback;
@@ -28,9 +37,11 @@ export function loadConfig(env = process.env) {
     if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
     return value;
   };
+  const port = num('CACHE_PROXY_PORT', 18765);
+  if (port < 1 || port > 65535) throw new Error('CACHE_PROXY_PORT must be between 1 and 65535');
   return {
     upstream: upstream.replace(/\/+$/, ''),
-    port: num('CACHE_PROXY_PORT', 18765),
+    port,
     stateDir: env.CACHE_PROXY_STATE_DIR || path.join(os.homedir(), '.local', 'state', 'opencode-cache-proxy'),
     pingAfterMs: num('CACHE_PROXY_PING_AFTER_SEC', 3300) * SEC,
     lateAfterMs: num('CACHE_PROXY_LATE_AFTER_SEC', 3480) * SEC,

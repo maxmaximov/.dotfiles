@@ -203,26 +203,32 @@ test('a known session is busy while its next request is still uploading', async 
   const c = clock();
   const cfg = testConfig(upstream.origin);
   const proxy = await startProxy(cfg, { now: c.now });
-  await (await post(proxy, opencodeBody())).text();
-  await waitFor(() => readJournal(cfg.stateDir).length === 1);
+  let req;
+  try {
+    await (await post(proxy, opencodeBody())).text();
+    await waitFor(() => readJournal(cfg.stateDir).length === 1);
 
-  // The next request of the same session: headers and part of the body arrive, the rest comes later.
-  const raw = Buffer.from(JSON.stringify(opencodeBody()));
-  const req = http.request(`${proxy.url}/v1/messages`, { method: 'POST', headers: { ...opencodeHeaders(), 'content-length': raw.length } });
-  const response = new Promise((resolve, reject) => req.on('response', resolve).on('error', reject));
-  req.write(raw.subarray(0, 100));
-  await waitFor(() => proxy.store.get('ses_test').inFlight === 1);
-  c.advance(55 * MIN);
-  proxy.pinger.tick();
-  await proxy.pinger.drain();
-  assert.equal(upstream.requests.length, 1);
+    // The next request of the same session: headers and part of the body arrive, the rest comes later.
+    const raw = Buffer.from(JSON.stringify(opencodeBody()));
+    req = http.request(`${proxy.url}/v1/messages`, { method: 'POST', headers: { ...opencodeHeaders(), 'content-length': raw.length } });
+    const response = new Promise((resolve, reject) => req.on('response', resolve).on('error', reject));
+    req.write(raw.subarray(0, 100));
+    await waitFor(() => proxy.store.get('ses_test').inFlight === 1);
+    c.advance(55 * MIN);
+    proxy.pinger.tick();
+    await proxy.pinger.drain();
+    assert.equal(upstream.requests.length, 1);
 
-  req.end(raw.subarray(100));
-  (await response).resume();
-  await waitFor(() => readJournal(cfg.stateDir).length === 2);
-  assert.equal(proxy.store.get('ses_test').inFlight, 0);
-  await proxy.close();
-  await upstream.close();
+    req.end(raw.subarray(100));
+    (await response).resume();
+    await waitFor(() => readJournal(cfg.stateDir).length === 2);
+    assert.equal(proxy.store.get('ses_test').inFlight, 0);
+  } finally {
+    // An open upload would keep the test process alive if an assertion failed.
+    req?.destroy();
+    await proxy.close();
+    await upstream.close();
+  }
 });
 
 test('loadConfig: defaults and validation', () => {
@@ -237,5 +243,10 @@ test('loadConfig: defaults and validation', () => {
   assert.throws(() => loadConfig({}), /CACHE_PROXY_UPSTREAM is required/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'llm.example' }), /http/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://llm.example/v1' }), /without \/v1/);
+  assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'http://' }), /not a valid URL/);
+  assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://user:pw@llm.example' }), /credentials, a query or a fragment/);
+  assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://llm.example/v1?x=1' }), /credentials, a query or a fragment/);
+  assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://x.example', CACHE_PROXY_PORT: '70000' }), /between 1 and 65535/);
+  assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://x.example', CACHE_PROXY_PORT: '0' }), /between 1 and 65535/);
   assert.throws(() => loadConfig({ CACHE_PROXY_UPSTREAM: 'https://x.example', CACHE_PROXY_DAILY_CAP: '-1' }), /CACHE_PROXY_DAILY_CAP/);
 });
