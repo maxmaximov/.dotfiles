@@ -16,5 +16,5 @@ export function createJournal(dir, now = () => Date.now()) {
 
 export function short(value, max = 300) {
   const text = value instanceof Error ? value.message : String(value ?? '');
-  return text.length > max ? `${text.slice(0, max)}…` : text;
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }

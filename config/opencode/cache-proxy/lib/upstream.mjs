@@ -8,20 +8,35 @@ const REQUEST_DROP = new Set([
 ]);
 const RESPONSE_DROP = new Set(['connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'te', 'trailer', 'upgrade']);
 
+// Headers named in `Connection` are hop-by-hop too (RFC 9110, section 7.6.1).
+function connectionNamed(headers) {
+  const named = new Set();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== 'connection' || value === undefined) continue;
+    for (const token of String(value).split(',')) {
+      if (token.trim()) named.add(token.trim().toLowerCase());
+    }
+  }
+  return named;
+}
+
 export function requestHeaders(incoming) {
+  const named = connectionNamed(incoming);
   const out = {};
   for (const [key, value] of Object.entries(incoming)) {
     const name = key.toLowerCase();
-    if (!REQUEST_DROP.has(name) && value !== undefined) out[name] = value;
+    if (!REQUEST_DROP.has(name) && !named.has(name) && value !== undefined) out[name] = value;
   }
   out['accept-encoding'] = 'identity';
   return out;
 }
 
 export function responseHeaders(incoming) {
+  const named = connectionNamed(incoming);
   const out = {};
   for (const [key, value] of Object.entries(incoming)) {
-    if (!RESPONSE_DROP.has(key.toLowerCase()) && value !== undefined) out[key] = value;
+    const name = key.toLowerCase();
+    if (!RESPONSE_DROP.has(name) && !named.has(name) && value !== undefined) out[key] = value;
   }
   return out;
 }

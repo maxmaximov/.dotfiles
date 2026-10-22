@@ -22,6 +22,17 @@ test('responseHeaders keeps content headers and drops hop-by-hop ones', () => {
   );
 });
 
+test('headers named in Connection are dropped in both directions', () => {
+  assert.deepEqual(
+    requestHeaders({ connection: 'keep-alive, x-internal', 'x-internal': '1', 'x-api-key': 'k' }),
+    { 'x-api-key': 'k', 'accept-encoding': 'identity' },
+  );
+  assert.deepEqual(
+    responseHeaders({ connection: 'x-internal', 'x-internal': '1', 'content-type': 'text/event-stream' }),
+    { 'content-type': 'text/event-stream' },
+  );
+});
+
 test('upstreamUrl joins the base and the incoming path, keeping a path prefix and the query', () => {
   assert.equal(upstreamUrl('https://llm.example', '/v1/messages').href, 'https://llm.example/v1/messages');
   assert.equal(upstreamUrl('https://llm.example/', '/v1/messages?beta=true').href, 'https://llm.example/v1/messages?beta=true');
@@ -42,6 +53,8 @@ test('journal appends JSON lines to a monthly file', () => {
 
 test('short truncates errors and values to 300 characters', () => {
   assert.equal(short(new Error('boom')), 'boom');
-  assert.equal(short('x'.repeat(301)), `${'x'.repeat(300)}…`);
+  assert.equal(short('x'.repeat(300)), 'x'.repeat(300));
+  assert.equal(short('x'.repeat(301)), `${'x'.repeat(299)}…`);
+  assert.equal(short('x'.repeat(301)).length, 300);
   assert.equal(short(undefined), '');
 });
