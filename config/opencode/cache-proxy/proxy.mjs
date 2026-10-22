@@ -169,12 +169,20 @@ export function createProxy(cfg, { now = () => Date.now(), journal = createJourn
       sendJson(res, 200, status());
       return;
     }
-    const ctx = prepare(req, await readAll(req));
-    if (ctx.tracked) store.beginReal(ctx.sessionId);
+    // A known session is busy from the moment its request arrives, so that no ping starts during the upload.
+    // Unknown sessions are created only after the body shows that the request is tracked.
+    const header = req.headers['x-session-id'];
+    let busy = typeof header === 'string' && store.get(header) ? header : null;
+    if (busy) store.beginReal(busy);
     try {
+      const ctx = prepare(req, await readAll(req));
+      if (ctx.tracked && busy === null) {
+        busy = ctx.sessionId;
+        store.beginReal(busy);
+      }
       await relay(req, res, ctx);
     } finally {
-      if (ctx.tracked) store.endReal(ctx.sessionId);
+      if (busy) store.endReal(busy);
     }
   }
 

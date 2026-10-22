@@ -1,6 +1,7 @@
 // test/proxy.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { loadConfig } from '../proxy.mjs';
 import {
   KEY, MIN, clock, testConfig, startUpstream, startProxy, waitFor, usage, sse, streamOf, jsonOf,
@@ -189,6 +190,37 @@ test('a real request through the proxy is pinged 55 minutes later with the same 
   }
   assert.deepEqual(readJournal(cfg.stateDir).map((r) => [r.kind, r.reason ?? null]), [['request', null], ['ping', 'ok']]);
   assert.equal(journalText(cfg.stateDir).includes(KEY), false);
+  await proxy.close();
+  await upstream.close();
+});
+
+test('a known session is busy while its next request is still uploading', async () => {
+  const upstream = await startUpstream((req, res, record) => {
+    if (JSON.parse(record.body).stream) return streamReply(usage({ write1h: 900 }))(req, res);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(jsonOf(usage({ read: 900 })));
+  });
+  const c = clock();
+  const cfg = testConfig(upstream.origin);
+  const proxy = await startProxy(cfg, { now: c.now });
+  await (await post(proxy, opencodeBody())).text();
+  await waitFor(() => readJournal(cfg.stateDir).length === 1);
+
+  // The next request of the same session: headers and part of the body arrive, the rest comes later.
+  const raw = Buffer.from(JSON.stringify(opencodeBody()));
+  const req = http.request(`${proxy.url}/v1/messages`, { method: 'POST', headers: { ...opencodeHeaders(), 'content-length': raw.length } });
+  const response = new Promise((resolve, reject) => req.on('response', resolve).on('error', reject));
+  req.write(raw.subarray(0, 100));
+  await waitFor(() => proxy.store.get('ses_test').inFlight === 1);
+  c.advance(55 * MIN);
+  proxy.pinger.tick();
+  await proxy.pinger.drain();
+  assert.equal(upstream.requests.length, 1);
+
+  req.end(raw.subarray(100));
+  (await response).resume();
+  await waitFor(() => readJournal(cfg.stateDir).length === 2);
+  assert.equal(proxy.store.get('ses_test').inFlight, 0);
   await proxy.close();
   await upstream.close();
 });
