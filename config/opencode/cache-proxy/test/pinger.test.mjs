@@ -144,6 +144,35 @@ test('a key replaced by a real request during a ping is still redacted from its 
   await t.close();
 });
 
+test('a ping overtaken by a real request is journaled with its own model and count', async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  let n = 0;
+  const t = await setup(async (req, res) => {
+    n += 1;
+    if (n === 2) await gate;
+    hit(req, res);
+  });
+  const realRequest = (model) => {
+    t.store.recordReal('ses_test', {
+      body: JSON.stringify(opencodeBody()), headers: opencodeHeaders(), model, path: '/v1/messages', start: t.c.t, oneHour: true,
+    });
+    t.store.setUsage('ses_test', t.c.t, { input: 3, cacheRead: 0, cacheWrite: 900, write5m: 0, write1h: 900, output: 5 });
+  };
+  realRequest('claude-old');
+  await t.run(55 * MIN);
+  t.c.advance(55 * MIN);
+  t.pinger.tick();
+  await waitFor(() => t.upstream.requests.length === 2);
+  t.c.advance(1000);
+  realRequest('claude-new');
+  release();
+  await t.pinger.drain();
+  assert.deepEqual(t.journal('ping').map((r) => [r.model, r.ping_n, r.reason]), [['claude-old', 1, 'ok'], ['claude-old', 2, 'ok']]);
+  assert.equal(t.store.get('ses_test').pings, 0);
+  await t.close();
+});
+
 test('429 and 5xx are retried at +56 and +57 minutes; a success resets attempts', async () => {
   let n = 0;
   const t = await setup((req, res) => {

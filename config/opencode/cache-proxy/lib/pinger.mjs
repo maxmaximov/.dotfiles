@@ -56,6 +56,8 @@ export function createPinger({ cfg, store, journal, now = () => Date.now() }) {
 
   async function ping(s) {
     const start = now();
+    // The journal record describes the ping that was sent, even if a real request replaces the session meanwhile.
+    const { model, pings } = s;
     s.pingInFlight = true;
     store.notePingSent(start);
     let status = null;
@@ -83,7 +85,7 @@ export function createPinger({ cfg, store, journal, now = () => Date.now() }) {
     const outcome = classifyPing({ status, hit: pingHit(result ? result.usage : null) });
     const stopReason = store.recordPing(s.id, start, outcome);
     journal.write({
-      kind: 'ping', session: s.id, model: s.model, status, ms: now() - start, ...usageFields(result), ping_n: s.pings, reason: outcome, error,
+      kind: 'ping', session: s.id, model, status, ms: now() - start, ...usageFields(result), ping_n: outcome === 'ok' ? pings + 1 : pings, reason: outcome, error,
     });
     if (stopReason) stopSession(s, stopReason);
   }
