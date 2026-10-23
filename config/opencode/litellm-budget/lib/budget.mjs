@@ -42,3 +42,29 @@ export function parseUserInfo(json) {
     duration: typeof info.budget_duration === 'string' && DURATION.test(info.budget_duration) ? info.budget_duration : null,
   };
 }
+
+const DAY_MS = 86_400_000;
+
+// The period ends at the reset and lasts `Nmo` calendar months or `Nd` days. Without both, LiteLLM never resets
+// `spend`, so there is no period.
+export function budgetPeriod({ resetAt, duration }) {
+  const m = DURATION.exec(duration ?? '');
+  if (typeof resetAt !== 'number' || !m) return null;
+  const start = new Date(resetAt);
+  if (m[2] === 'mo') start.setUTCMonth(start.getUTCMonth() - Number(m[1]));
+  else start.setUTCDate(start.getUTCDate() - Number(m[1]));
+  return { start: start.getTime(), end: resetAt };
+}
+
+// Percent of the limit and a forecast at the average pace of the period. Multiplying before dividing keeps round
+// inputs exact: 0.29 * 100 is 28.999999999999996.
+export function computeForecast({ spend, maxBudget, period, now }) {
+  const limited = maxBudget !== null;
+  const exhausted = limited && spend >= maxBudget;
+  const result = { percent: limited ? Math.floor((spend * 100) / maxBudget) : null, exhausted, forecast: null, runsOut: null };
+  if (!period || now < period.start + DAY_MS || now >= period.end) return result;
+  const elapsed = now - period.start;
+  result.forecast = (spend * (period.end - period.start)) / elapsed;
+  if (limited && !exhausted && result.forecast > maxBudget) result.runsOut = period.start + (maxBudget * elapsed) / spend;
+  return result;
+}

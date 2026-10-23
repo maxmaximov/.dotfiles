@@ -67,3 +67,53 @@ test('parseUserInfo rejects responses without a numeric spend', () => {
     assert.throws(() => budget.parseUserInfo(json), /user_info/, JSON.stringify(json));
   }
 });
+
+const HOUR = 3_600_000;
+const at = (iso) => Date.parse(iso);
+const OCTOBER = { start: at('2026-10-01T00:00:00Z'), end: at('2026-11-01T00:00:00Z') };
+const MID = at('2026-10-16T00:00:00Z'); // 15 of the 31 days have passed
+
+test('budgetPeriod goes back from the reset by calendar months or by days', () => {
+  assert.deepEqual(budget.budgetPeriod({ resetAt: OCTOBER.end, duration: '1mo' }), OCTOBER);
+  assert.deepEqual(budget.budgetPeriod({ resetAt: OCTOBER.end, duration: '2mo' }), { start: at('2026-09-01T00:00:00Z'), end: OCTOBER.end });
+  assert.deepEqual(budget.budgetPeriod({ resetAt: at('2026-10-26T00:00:00Z'), duration: '7d' }), {
+    start: at('2026-10-19T00:00:00Z'),
+    end: at('2026-10-26T00:00:00Z'),
+  });
+});
+
+test('budgetPeriod is null without both the reset time and a supported duration', () => {
+  assert.equal(budget.budgetPeriod({ resetAt: null, duration: '1mo' }), null);
+  assert.equal(budget.budgetPeriod({ resetAt: OCTOBER.end, duration: null }), null);
+  assert.equal(budget.budgetPeriod({ resetAt: OCTOBER.end, duration: '30m' }), null);
+});
+
+test('computeForecast extrapolates the average pace of the period', () => {
+  const forecast = (spend) => budget.computeForecast({ spend, maxBudget: 1000, period: OCTOBER, now: MID });
+  assert.deepEqual(forecast(600), { percent: 60, exhausted: false, forecast: 1240, runsOut: at('2026-10-26T00:00:00Z') });
+  assert.deepEqual(forecast(300), { percent: 30, exhausted: false, forecast: 620, runsOut: null });
+  assert.deepEqual(forecast(0), { percent: 0, exhausted: false, forecast: 0, runsOut: null });
+  assert.equal(budget.computeForecast({ spend: 290, maxBudget: 1000, period: null, now: MID }).percent, 29);
+});
+
+test('computeForecast without a limit has no percent and no run-out date', () => {
+  assert.deepEqual(budget.computeForecast({ spend: 300, maxBudget: null, period: OCTOBER, now: MID }), {
+    percent: null,
+    exhausted: false,
+    forecast: 620,
+    runsOut: null,
+  });
+});
+
+test('computeForecast has no run-out date once the limit is exhausted', () => {
+  const result = budget.computeForecast({ spend: 1003.7, maxBudget: 1000, period: OCTOBER, now: MID });
+  assert.deepEqual([result.percent, result.exhausted, result.runsOut], [100, true, null]);
+});
+
+test('computeForecast has no forecast in the first 24 hours, after the end or without a period', () => {
+  const forecastAt = (now, period = OCTOBER) => budget.computeForecast({ spend: 50, maxBudget: 1000, period, now }).forecast;
+  assert.equal(forecastAt(OCTOBER.start + 24 * HOUR - 1), null);
+  assert.equal(forecastAt(OCTOBER.start + 24 * HOUR), 50 * 31);
+  assert.equal(forecastAt(OCTOBER.end + HOUR), null);
+  assert.equal(forecastAt(MID, null), null);
+});
