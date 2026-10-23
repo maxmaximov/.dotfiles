@@ -1,4 +1,5 @@
 {
   "$schema": "https://opencode.ai/tui.json",
-  "attention": { "enabled": true }
+  "attention": { "enabled": true },
+  "plugin": [["./litellm-budget/index.tsx", { "provider": "jb_litellm_anthropic" }]]
 }
