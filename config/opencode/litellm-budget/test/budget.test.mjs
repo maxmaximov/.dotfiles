@@ -31,3 +31,39 @@ test('resolveApiKey returns null when there is no usable key', () => {
     assert.equal(budget.resolveApiKey(value, { BLANK: ' ' }), null, String(value));
   }
 });
+
+const RESET = '2026-11-01T00:00:00Z';
+const userInfo = (fields = {}) => ({
+  user_id: 'u-test',
+  keys: [{ token: 'not-copied' }],
+  user_info: { spend: 12.5, max_budget: 1000, budget_duration: '1mo', budget_reset_at: RESET, ...fields },
+});
+
+test('parseUserInfo keeps the four user_info fields the block needs', () => {
+  assert.deepEqual(budget.parseUserInfo(userInfo()), { spend: 12.5, maxBudget: 1000, resetAt: Date.parse(RESET), duration: '1mo' });
+  assert.equal(budget.parseUserInfo(userInfo({ budget_duration: '7d' })).duration, '7d');
+});
+
+test('parseUserInfo turns missing or unsupported optional fields into null', () => {
+  for (const max_budget of [null, 0, -5, '1000']) {
+    assert.equal(budget.parseUserInfo(userInfo({ max_budget })).maxBudget, null, String(max_budget));
+  }
+  for (const budget_duration of [null, '30m', '0d', '1y', 'mo']) {
+    assert.equal(budget.parseUserInfo(userInfo({ budget_duration })).duration, null, String(budget_duration));
+  }
+  for (const budget_reset_at of [null, 'soon', 1798761600000]) {
+    assert.equal(budget.parseUserInfo(userInfo({ budget_reset_at })).resetAt, null, String(budget_reset_at));
+  }
+});
+
+test('parseUserInfo reads a reset time without a zone as UTC', () => {
+  for (const budget_reset_at of ['2026-11-01T00:00:00', '2026-11-01T00:00:00.000000', '2026-11-01T00:00:00+00:00', '2026-11-01T01:00:00+01:00']) {
+    assert.equal(budget.parseUserInfo(userInfo({ budget_reset_at })).resetAt, Date.parse(RESET), budget_reset_at);
+  }
+});
+
+test('parseUserInfo rejects responses without a numeric spend', () => {
+  for (const json of [null, {}, { user_info: null }, { user_info: {} }, userInfo({ spend: '12.5' }), userInfo({ spend: null })]) {
+    assert.throws(() => budget.parseUserInfo(json), /user_info/, JSON.stringify(json));
+  }
+});

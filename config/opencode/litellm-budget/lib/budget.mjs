@@ -20,3 +20,25 @@ export function resolveApiKey(apiKey, env) {
   const key = template ? env[template[1]] : apiKey;
   return typeof key === 'string' && key.trim() ? key.trim() : null;
 }
+
+const DURATION = /^([1-9]\d*)(mo|d)$/;
+
+// LiteLLM keeps times in UTC, so a time without a zone is read as UTC rather than local time.
+function parseTime(value) {
+  if (typeof value !== 'string') return null;
+  const ms = Date.parse(/T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(value) ? `${value}Z` : value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+// The four `user_info` fields the block needs; unknown or unsupported ones become null.
+export function parseUserInfo(json) {
+  const info = json?.user_info;
+  if (!info || typeof info !== 'object') throw new Error('response has no user_info');
+  if (!Number.isFinite(info.spend)) throw new Error('user_info.spend is not a number');
+  return {
+    spend: info.spend,
+    maxBudget: Number.isFinite(info.max_budget) && info.max_budget > 0 ? info.max_budget : null,
+    resetAt: parseTime(info.budget_reset_at),
+    duration: typeof info.budget_duration === 'string' && DURATION.test(info.budget_duration) ? info.budget_duration : null,
+  };
+}
