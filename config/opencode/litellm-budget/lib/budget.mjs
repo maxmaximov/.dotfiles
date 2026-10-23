@@ -68,3 +68,40 @@ export function computeForecast({ spend, maxBudget, period, now }) {
   if (limited && !exhausted && result.forecast > maxBudget) result.runsOut = period.start + (maxBudget * elapsed) / spend;
   return result;
 }
+
+const MONTH = new Intl.DateTimeFormat('en-US', { month: 'long', timeZone: 'UTC' });
+const usd = (amount) => `$${Math.floor(amount)}`;
+const format = (ms, timeZone, options) => new Intl.DateTimeFormat('en-US', { ...options, timeZone }).format(ms);
+const day = (ms, timeZone) => format(ms, timeZone, { month: 'short', day: 'numeric' });
+const clock = (ms, timeZone) => format(ms, timeZone, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const sameDay = (a, b, timeZone) => format(a, timeZone, { dateStyle: 'short' }) === format(b, timeZone, { dateStyle: 'short' });
+
+// Lines of the sidebar block, each `{ text, tone }` with tone `title`, `muted`, `warning` or `error`.
+// `last` is `{ info, fetchedAt }` or null; `error` says whether the last attempt failed; `timeZone` is the zone for
+// dates and times (undefined means the system zone). The month in the title is always taken in UTC.
+export function budgetLines({ last, error, now, timeZone }) {
+  if (!last) return [{ text: error ? 'LiteLLM unreachable' : 'no data yet', tone: 'muted' }];
+  const { info, fetchedAt } = last;
+  const period = budgetPeriod(info);
+  const { percent, exhausted, forecast, runsOut } = computeForecast({ ...info, period, now });
+  const lines = [{ text: period ? `LiteLLM budget · ${MONTH.format(period.start)}` : 'LiteLLM budget', tone: 'title' }];
+  if (info.maxBudget === null) {
+    lines.push({ text: `${usd(info.spend)} spent`, tone: 'muted' });
+    if (forecast !== null) lines.push({ text: `Forecast: ${usd(forecast)}`, tone: 'muted' });
+  } else {
+    lines.push({ text: `${usd(info.spend)} of ${usd(info.maxBudget)} · ${percent}%`, tone: 'muted' });
+    if (exhausted) {
+      const resets = period ? ` · resets ${day(period.end, timeZone)}` : '';
+      lines.push({ text: `Budget exhausted${resets}`, tone: 'error' });
+    } else if (forecast !== null) {
+      const over = forecast > info.maxBudget;
+      lines.push({ text: `Forecast: ${usd(forecast)} — ${over ? 'over' : 'within'} budget`, tone: over ? 'warning' : 'muted' });
+      if (runsOut !== null) lines.push({ text: `Runs out ≈ ${day(runsOut, timeZone)}`, tone: 'warning' });
+    }
+  }
+  if (error) {
+    const asOf = sameDay(fetchedAt, now, timeZone) ? clock(fetchedAt, timeZone) : day(fetchedAt, timeZone);
+    lines.push({ text: `LiteLLM unreachable · as of ${asOf}`, tone: 'muted' });
+  }
+  return lines;
+}

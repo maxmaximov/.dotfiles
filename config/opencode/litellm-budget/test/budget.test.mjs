@@ -117,3 +117,64 @@ test('computeForecast has no forecast in the first 24 hours, after the end or wi
   assert.equal(forecastAt(OCTOBER.end + HOUR), null);
   assert.equal(forecastAt(MID, null), null);
 });
+
+const info = (fields = {}) => ({ spend: 600, maxBudget: 1000, resetAt: OCTOBER.end, duration: '1mo', ...fields });
+const linesFor = (fields, { now = MID, error = false, fetchedAt = now, timeZone = 'UTC' } = {}) =>
+  budget.budgetLines({ last: { info: info(fields), fetchedAt }, error, now, timeZone });
+const title = { text: 'LiteLLM budget · October', tone: 'title' };
+const untitled = { text: 'LiteLLM budget', tone: 'title' };
+const muted = (text) => ({ text, tone: 'muted' });
+
+test('budgetLines before the first answer', () => {
+  assert.deepEqual(budget.budgetLines({ last: null, error: false, now: MID }), [muted('no data yet')]);
+  assert.deepEqual(budget.budgetLines({ last: null, error: true, now: MID }), [muted('LiteLLM unreachable')]);
+});
+
+test('budgetLines with a forecast within the limit', () => {
+  assert.deepEqual(linesFor({ spend: 300 }), [title, muted('$300 of $1000 · 30%'), muted('Forecast: $620 — within budget')]);
+});
+
+test('budgetLines with a forecast over the limit warns and says when the limit runs out', () => {
+  assert.deepEqual(linesFor({ spend: 600 }), [
+    title,
+    muted('$600 of $1000 · 60%'),
+    { text: 'Forecast: $1240 — over budget', tone: 'warning' },
+    { text: 'Runs out ≈ Oct 26', tone: 'warning' },
+  ]);
+});
+
+test('budgetLines once the limit is exhausted', () => {
+  assert.deepEqual(linesFor({ spend: 1003.7 }), [title, muted('$1003 of $1000 · 100%'), { text: 'Budget exhausted · resets Nov 1', tone: 'error' }]);
+});
+
+test('budgetLines without a limit', () => {
+  assert.deepEqual(linesFor({ spend: 300, maxBudget: null }), [title, muted('$300 spent'), muted('Forecast: $620')]);
+});
+
+test('budgetLines has no forecast in the first day of the period', () => {
+  assert.deepEqual(linesFor({ spend: 50 }, { now: at('2026-10-01T12:00:00Z') }), [title, muted('$50 of $1000 · 5%')]);
+});
+
+test('budgetLines without a known period has no month, forecast or reset date', () => {
+  assert.deepEqual(linesFor({ spend: 300, duration: null }), [untitled, muted('$300 of $1000 · 30%')]);
+  assert.deepEqual(linesFor({ spend: 1200, resetAt: null }), [untitled, muted('$1200 of $1000 · 120%'), { text: 'Budget exhausted', tone: 'error' }]);
+});
+
+test('budgetLines rounds amounts and the percent down', () => {
+  assert.deepEqual(linesFor({ spend: 999.99 })[1], muted('$999 of $1000 · 99%'));
+});
+
+test('budgetLines adds the time of the shown data after a failed attempt', () => {
+  const timeZone = 'Europe/Amsterdam'; // UTC+2 in mid-October
+  const fetchedAt = at('2026-10-15T19:40:00Z');
+  const lastLine = (now) => linesFor({}, { error: true, fetchedAt, now, timeZone }).at(-1);
+  assert.deepEqual(lastLine(at('2026-10-15T21:00:00Z')), muted('LiteLLM unreachable · as of 21:40'));
+  assert.deepEqual(lastLine(at('2026-10-16T00:00:00Z')), muted('LiteLLM unreachable · as of Oct 15'));
+});
+
+test('budgetLines shows dates in the given zone and the month of the period in UTC', () => {
+  const timeZone = 'America/Los_Angeles'; // UTC-7 in late October
+  const over = linesFor({ spend: 600 }, { timeZone });
+  assert.deepEqual([over[0].text, over.at(-1).text], ['LiteLLM budget · October', 'Runs out ≈ Oct 25']);
+  assert.equal(linesFor({ spend: 1003.7 }, { timeZone }).at(-1).text, 'Budget exhausted · resets Oct 31');
+});
