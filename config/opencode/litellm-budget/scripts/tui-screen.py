@@ -9,7 +9,7 @@ topmost STRING found and exits 0 only if every STRING is in the session sidebar.
 of the session messages cannot match. The environment passes through, so OPENCODE_TUI_CONFIG can add plugins.
 The opencode process group is killed afterwards.
 """
-import fcntl, os, pty, re, select, signal, sqlite3, struct, sys, termios, time, unicodedata
+import fcntl, os, pty, re, select, shutil, signal, sqlite3, struct, sys, termios, time, unicodedata
 
 ROWS, COLS = 50, 200
 SIDEBAR = COLS - 42  # the session sidebar is the rightmost 42 columns
@@ -37,7 +37,9 @@ def idle_session():
 def capture(seconds):
     session, directory = idle_session()
     print(f'session {session}')
-    binary = os.path.expanduser('~/.opencode/bin/opencode')
+    binary = shutil.which('opencode')
+    if not binary:
+        sys.exit('opencode is not on PATH')
     env = {k: v for k, v in os.environ.items() if k not in ('OPENCODE', 'OPENCODE_PID')}
     env.update(TERM='xterm-256color', COLORTERM='truecolor')
     pid, fd = pty.fork()
