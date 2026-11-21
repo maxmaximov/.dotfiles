@@ -1,11 +1,92 @@
 {
-  "$schema": "https://opencode.ai/config.json",
+  "$schema": "https://raw.githubusercontent.com/anomalyco/opencode/ccd3aa787a0996307f329498de17efa991d7ab12/packages/schema/script/config-v1.json",
   "autoupdate": false,
-  "instructions": ["~/wiki/AGENTS.md"],
-  "plugin": [
-    "superpowers@git+https://github.com/obra/superpowers.git",
-    "@plannotator/opencode@latest"
+  "instructions": [
+    "~/wiki/AGENTS.md"
   ],
+  "plugin": [
+    "superpowers@git+https://github.com/obra/superpowers.git#v7.0.2",
+    "@plannotator/opencode@0.29.0"
+  ],
+  "model": "jb_litellm_anthropic/anthropic/claude-opus-5-5",
+  "small_model": "jb_litellm/openai/gpt-6-sol",
+  "compaction": {
+    "prune": false,
+    "preserve_recent_tokens": 40000
+  },
+  "tool_output": {
+    "max_lines": 500,
+    "max_bytes": 16384
+  },
+  "permission": {
+    "teamcity_*": "deny",
+    "external_directory": "allow",
+    // Figma: read-only tools for implementing designs; canvas writes, FigJam, shaders and Weave stay hidden
+    "figma_*": "deny",
+    "figma_get_design_context": "allow",
+    "figma_get_metadata": "allow",
+    "figma_get_screenshot": "allow",
+    "figma_get_variable_defs": "allow",
+    "figma_download_assets": "allow",
+    "figma_whoami": "allow",
+    // Skills: listed ones load without asking, anything else asks first
+    "skill": {
+      "*": "ask",
+      // built into opencode
+      "customize-opencode": "allow",
+      // superpowers v7.0.2
+      "brainstorming": "allow",
+      "diagnosing-superpowers": "allow",
+      "dispatching-parallel-agents": "allow",
+      "executing-plans": "allow",
+      "finishing-a-development-branch": "allow",
+      "receiving-code-review": "allow",
+      "requesting-code-review": "allow",
+      "subagent-driven-development": "allow",
+      "systematic-debugging": "allow",
+      "test-driven-development": "allow",
+      "using-git-worktrees": "allow",
+      "using-superpowers": "allow",
+      "verification-before-completion": "allow",
+      "writing-plans": "allow",
+      "writing-skills": "allow",
+      // ~/.config/opencode/skills (also in the youtrack and jcp-hub repos)
+      "agent-browser": "allow",
+      // youtrack repo: .agents/skills
+      "backend-agents-md": "allow",
+      "commit-lint": "allow",
+      "gh-pr": "allow",
+      "research-feature": "allow",
+      // youtrack repo: frontend/.agents/skills
+      "playwright-best-practices": "allow",
+      "react-no-effect": "allow",
+      "react19": "allow",
+      "typescript-best-practices": "allow",
+      // youtrack repo: frontend/reports/.claude/skills
+      "recharts-reports": "allow"
+    }
+  },
+  "agent": {
+    "explore": {
+      "model": "jb_litellm/openai/gpt-6-sol",
+      // top-level rules apply after explore's own "*": "deny"; keep it without skills and Figma
+      "permission": {
+        "skill": "deny",
+        "figma_*": "deny"
+      }
+    },
+    "general": {
+      "model": "jb_litellm/openai/gpt-6-sol"
+    },
+    "compaction": {
+      "model": "jb_litellm/openai/gpt-6-sol"
+    }
+  },
+  // limit.output: for each model step (thinking + text + tool arguments) opencode v1 sends
+  // max_tokens = min(limit.output, $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX), and the env var defaults
+  // to 32000. So limit.output can only lower the cap; 128000 (max_output_tokens in LiteLLM) has no
+  // effect. The real cap is the env var: 64000, exported in ~/.config/zsh/.zshenv and read once at
+  // startup. limit.output stays because the schema requires it alongside limit.context.
   "provider": {
     "jb_litellm": {
       "npm": "@ai-sdk/openai-compatible",
@@ -15,17 +96,162 @@
         "apiKey": "{env:OPENCODE_JB_LITELLM_API_KEY}"
       },
       "models": {
-        "openai/gpt-5.3-codex": {
-          "name": "GPT-5.3 Codex"
+        "openai/gpt-6-astra": {
+          "name": "GPT-6 Astra",
+          "reasoning": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ]
+          },
+          "limit": {
+            "context": 270000,
+            "input": 270000,
+            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
+          },
+          "cost": {
+            "input": 12.5,
+            "output": 50,
+            "cache_read": 1,
+            "cache_write": 12.5
+          },
+          "variants": {
+            "xhigh": {
+              "reasoningEffort": "xhigh"
+            }
+          }
         },
-        "anthropic/claude-opus-4-7": {
-          "name": "Claude Opus 4.7"
+        "openai/gpt-6-sol": {
+          "name": "GPT-6 Sol",
+          "reasoning": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ]
+          },
+          "limit": {
+            "context": 270000,
+            "input": 270000,
+            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
+          },
+          "cost": {
+            "input": 2.5,
+            "output": 10,
+            "cache_read": 0.2,
+            "cache_write": 2.5
+          },
+          "variants": {
+            "xhigh": {
+              "reasoningEffort": "xhigh"
+            }
+          }
         },
-        "anthropic/claude-opus-4-6": {
-          "name": "Claude Opus 4.6"
+        "openai/gpt-5.6-sol": {
+          "name": "GPT-5.6 Sol",
+          "reasoning": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ]
+          },
+          "limit": {
+            "context": 270000,
+            "input": 270000,
+            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
+          },
+          "cost": {
+            "input": 5,
+            "output": 20,
+            "cache_read": 0.4,
+            "cache_write": 5
+          },
+          "variants": {
+            "xhigh": {
+              "reasoningEffort": "xhigh"
+            }
+          }
+        }
+      }
+    },
+    "jb_litellm_anthropic": {
+      "npm": "@ai-sdk/anthropic",
+      "name": "JB LiteLLM (Anthropic)",
+      "options": {
+        "baseURL": "http://127.0.0.1:18765/v1",
+        "apiKey": "{env:OPENCODE_JB_LITELLM_API_KEY}"
+      },
+      "models": {
+        "anthropic/claude-fable-5-1": {
+          "name": "Claude Fable 5.1",
+          "reasoning": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ]
+          },
+          "limit": {
+            "context": 400000,
+            "input": 400000,
+            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
+          },
+          "cost": {
+            "input": 10,
+            "output": 50,
+            "cache_read": 0.25,
+            "cache_write": 20
+          }
         },
-        "gemini-3.1-pro-preview": {
-          "name": "Gemini 3.1 Pro Preview"
+        "anthropic/claude-opus-5-5": {
+          "name": "Claude Opus 5.5",
+          "reasoning": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ]
+          },
+          "limit": {
+            "context": 400000,
+            "input": 400000,
+            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
+          },
+          "cost": {
+            "input": 4,
+            "output": 20,
+            "cache_read": 0.2,
+            "cache_write": 8
+          }
+        },
+        "anthropic/claude-opus-5": {
+          "name": "Claude Opus 5",
+          "reasoning": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ]
+          },
+          "limit": {
+            "context": 400000,
+            "input": 400000,
+            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
+          },
+          "cost": {
+            "input": 5,
+            "output": 25,
+            "cache_read": 0.5,
+            "cache_write": 10
+          }
         }
       }
     }
@@ -42,28 +268,39 @@
     "teamcity": {
       "enabled": true,
       "type": "local",
-      "command": ["npx", "-y", "@daghis/teamcity-mcp"],
+      "command": [
+        "npx",
+        "-y",
+        "@daghis/teamcity-mcp"
+      ],
       "environment": {
         "TEAMCITY_URL": "https://buildserver.labs.intellij.net",
         "TEAMCITY_TOKEN": "{env:OPENCODE_TEAMCITY_TOKEN}",
-        "MCP_MODE": "full"
+        "MCP_MODE": "dev"
       }
     },
     "github": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
       "environment": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:OPENCODE_GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
     },
     "playwright": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
-      "command": ["npx", "@playwright/mcp@latest"]
+      "command": [
+        "npx",
+        "@playwright/mcp@latest"
+      ]
     },
     "context7": {
-      "enabled": true,
+      "enabled": false,
       "type": "remote",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
@@ -71,9 +308,12 @@
       }
     },
     "mise": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
-      "command": ["mise", "mcp"],
+      "command": [
+        "mise",
+        "mcp"
+      ],
       "environment": {
         "MISE_EXPERIMENTAL": "1"
       }
@@ -81,12 +321,40 @@
     "chrome-devtools": {
       "enabled": true,
       "type": "local",
-      "command": ["npx", "-y", "chrome-devtools-mcp@latest"]
+      "command": [
+        "npx",
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
     },
     "agentation": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
-      "command": ["npx", "-y", "agentation-mcp", "server"]
+      "command": [
+        "npx",
+        "-y",
+        "agentation-mcp",
+        "server"
+      ]
+    },
+    "glean": {
+      "enabled": false,
+      "type": "remote",
+      "url": "https://jetbrains-be.glean.com/mcp/default"
+    },
+    "figma": {
+      // Off by default: six tool schemas + server instructions add ~9.7k tokens to every build/plan/general/ci
+      // request. Turn on in a TUI when needed: ctrl+p -> Toggle MCPs (/mcps), space on figma.
+      // Not saved: a TUI restart turns it off again. Toggling mid-session rewrites that session's cache once.
+      "enabled": false,
+      "type": "remote",
+      "url": "https://mcp.figma.com/mcp",
+      // Figma's client registration rejects opencode v1's default http://127.0.0.1:19876/mcp/oauth/callback
+      // with 400 invalid_redirect_uri (shown as a bare "Authentication failed"); a one-segment path is accepted.
+      // Not fixed in v1: anomalyco/opencode#57360, #59945.
+      "oauth": {
+        "redirectUri": "http://127.0.0.1:19876/callback"
+      }
     }
   }
 }
