@@ -9,7 +9,7 @@
     "@plannotator/opencode@0.29.0"
   ],
   "model": "jb_litellm_anthropic/anthropic/claude-opus-5-5",
-  "small_model": "jb_litellm/openai/gpt-6-sol",
+  "small_model": "jb_litellm/openai/gpt-6.2-sol",
   "compaction": {
     "prune": false,
     "preserve_recent_tokens": 40000
@@ -68,7 +68,7 @@
   },
   "agent": {
     "explore": {
-      "model": "jb_litellm/openai/gpt-6-sol",
+      "model": "jb_litellm/openai/gpt-6.2-sol",
       // top-level rules apply after explore's own "*": "deny"; keep it without skills and Figma
       "permission": {
         "skill": "deny",
@@ -76,10 +76,10 @@
       }
     },
     "general": {
-      "model": "jb_litellm/openai/gpt-6-sol"
+      "model": "jb_litellm/openai/gpt-6.2-sol"
     },
     "compaction": {
-      "model": "jb_litellm/openai/gpt-6-sol"
+      "model": "jb_litellm/openai/gpt-6.2-sol"
     }
   },
   // limit.output: for each model step (thinking + text + tool arguments) opencode v1 sends
@@ -96,8 +96,8 @@
         "apiKey": "{env:OPENCODE_JB_LITELLM_API_KEY}"
       },
       "models": {
-        "openai/gpt-6-astra": {
-          "name": "GPT-6 Astra",
+        "openai/gpt-6.2-astra": {
+          "name": "GPT-6.2 Astra",
           "reasoning": true,
           "modalities": {
             "input": [
@@ -112,64 +112,37 @@
             "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
           },
           "cost": {
-            "input": 12.5,
-            "output": 50,
-            "cache_read": 1,
-            "cache_write": 12.5
-          },
-          "variants": {
-            "xhigh": {
-              "reasoningEffort": "xhigh"
-            }
-          }
-        },
-        "openai/gpt-6-sol": {
-          "name": "GPT-6 Sol",
-          "reasoning": true,
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ]
-          },
-          "limit": {
-            "context": 270000,
-            "input": 270000,
-            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
-          },
-          "cost": {
-            "input": 2.5,
-            "output": 10,
-            "cache_read": 0.2,
-            "cache_write": 2.5
-          },
-          "variants": {
-            "xhigh": {
-              "reasoningEffort": "xhigh"
-            }
-          }
-        },
-        "openai/gpt-5.6-sol": {
-          "name": "GPT-5.6 Sol",
-          "reasoning": true,
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ]
-          },
-          "limit": {
-            "context": 270000,
-            "input": 270000,
-            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
-          },
-          "cost": {
-            "input": 5,
-            "output": 20,
+            "input": 8,
+            "output": 40,
             "cache_read": 0.4,
-            "cache_write": 5
+            "cache_write": 10
+          },
+          "variants": {
+            "xhigh": {
+              "reasoningEffort": "xhigh"
+            }
+          }
+        },
+        "openai/gpt-6.2-sol": {
+          "name": "GPT-6.2 Sol",
+          "reasoning": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ]
+          },
+          "limit": {
+            "context": 270000,
+            "input": 270000,
+            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
+          },
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cache_read": 0.1,
+            "cache_write": 2.5
           },
           "variants": {
             "xhigh": {
@@ -187,8 +160,8 @@
         "apiKey": "{env:OPENCODE_JB_LITELLM_API_KEY}"
       },
       "models": {
-        "anthropic/claude-fable-5-1": {
-          "name": "Claude Fable 5.1",
+        "anthropic/claude-fable-5-2": {
+          "name": "Claude Fable 5.2",
           "reasoning": true,
           "modalities": {
             "input": [
@@ -203,10 +176,10 @@
             "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
           },
           "cost": {
-            "input": 10,
-            "output": 50,
-            "cache_read": 0.25,
-            "cache_write": 20
+            "input": 8,
+            "output": 40,
+            "cache_read": 0.2,
+            "cache_write": 10
           }
         },
         "anthropic/claude-opus-5-5": {
@@ -229,28 +202,6 @@
             "output": 20,
             "cache_read": 0.2,
             "cache_write": 8
-          }
-        },
-        "anthropic/claude-opus-5": {
-          "name": "Claude Opus 5",
-          "reasoning": true,
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ]
-          },
-          "limit": {
-            "context": 400000,
-            "input": 400000,
-            "output": 128000 // no effect: the real cap is $OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX, see the note above "provider"
-          },
-          "cost": {
-            "input": 5,
-            "output": 25,
-            "cache_read": 0.5,
-            "cache_write": 10
           }
         }
       }

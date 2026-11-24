@@ -1,7 +1,7 @@
 ---
 description: TeamCity (buildserver.labs.intellij.net) investigator. Use for any CI question — build status, why a build failed, build logs, failed tests, triggering or waiting for builds. Триггеры — билд, сборка, TeamCity, buildserver, упал билд, тесты в CI, merge queue. It is the only agent with teamcity_* tools.
 mode: subagent
-model: jb_litellm/openai/gpt-6-sol
+model: jb_litellm/openai/gpt-6.2-sol
 permission:
   teamcity_*: allow
   edit: deny
