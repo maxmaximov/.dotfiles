@@ -10,6 +10,7 @@
   ],
   "model": "jb_litellm_anthropic/anthropic/claude-opus-5-5",
   "small_model": "jb_litellm/openai/gpt-6.2-sol",
+  "disabled_providers": ["opencode", "github-copilot"],
   "compaction": {
     "prune": false,
     "preserve_recent_tokens": 40000
